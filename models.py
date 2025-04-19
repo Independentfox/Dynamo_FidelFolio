@@ -1500,3 +1500,164 @@ def evaluate_and_visualize(model, data_loader, device):
 # Usage example:
 preds, actuals = evaluate_and_visualize(model, data_loader, device)
 
+
+
+#-------------------------------------------------------------------#
+                        # Multi-Horizon TCN 
+#-------------------------------------------------------------------#
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils.rnn import pad_sequence
+import numpy as np
+
+# 1. Define TCN block
+class TCNBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, dilation):
+        super(TCNBlock, self).__init__()
+        self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size, 
+                               padding=(kernel_size - 1) * dilation, dilation=dilation)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.3)
+        self.residual = nn.Conv1d(in_channels, out_channels, 1) if in_channels != out_channels else nn.Identity()
+        self.kernel_size = kernel_size
+        self.dilation = dilation
+
+    def forward(self, x):
+        out = self.conv1(x)
+        
+        # Trim the output to match input sequence length
+        trim = (self.kernel_size - 1) * self.dilation
+        if trim > 0:
+            out = out[:, :, :-trim]
+
+        out = self.relu(out)
+        out = self.dropout(out)
+        return out + self.residual(x)
+
+
+# 2. Full Multi-horizon TCN Model
+class MarketCapTCN(nn.Module):
+    def __init__(self, input_size, num_targets):
+        super(MarketCapTCN, self).__init__()
+        self.tcn_net = nn.Sequential(
+            TCNBlock(input_size, 64, kernel_size=3, dilation=1),
+            TCNBlock(64, 64, kernel_size=3, dilation=2),
+            TCNBlock(64, 64, kernel_size=3, dilation=4)
+        )
+        self.global_pool = nn.AdaptiveAvgPool1d(1)
+        self.fc_out = nn.Linear(64, num_targets)
+
+    def forward(self, x):
+        # Input: [B, T, F] --> [B, F, T] for Conv1D
+        x = x.permute(0, 2, 1)
+        out = self.tcn_net(x)
+        out = self.global_pool(out).squeeze(-1)
+        return self.fc_out(out)
+
+# 3. Custom Dataset and DataLoader
+class TCNMarketDataset(Dataset):
+    def __init__(self, sequence_data):
+        self.data = sequence_data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+def tcn_collate_fn(batch):
+    X_list, y_list = zip(*batch)
+    X_padded = pad_sequence(X_list, batch_first=True)  # [B, T, F]
+    y_tensor = torch.stack(y_list)
+    return X_padded, y_tensor
+
+# 4. Data loader
+tcn_dataset = TCNMarketDataset(task_dataset)
+tcn_loader = DataLoader(tcn_dataset, batch_size=64, shuffle=True, collate_fn=tcn_collate_fn)
+
+# 5. Model init and training setup
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+tcn_model = MarketCapTCN(input_size=len(features), num_targets=3).to(device)
+tcn_criterion = nn.MSELoss()
+tcn_optimizer = optim.Adam(tcn_model.parameters(), lr=0.001)
+
+# 6. Training loop
+tcn_epochs = 2000
+tcn_losses = []
+
+for epoch in range(tcn_epochs):
+    tcn_model.train()
+    total_loss = 0
+    for X_batch, y_batch in tcn_loader:
+        X_batch = X_batch.to(device)
+        y_batch = y_batch.to(device)
+
+        preds = tcn_model(X_batch)
+        loss = tcn_criterion(preds, y_batch)
+
+        tcn_optimizer.zero_grad()
+        loss.backward()
+        tcn_optimizer.step()
+
+        total_loss += loss.item()
+
+    epoch_loss = total_loss / len(tcn_loader)
+    tcn_losses.append(epoch_loss)
+    print(f"[TCN] Epoch {epoch+1}/{tcn_epochs}, Loss: {epoch_loss:.4f}")
+
+# 7. Evaluation
+tcn_model.eval()
+tcn_preds, tcn_actuals = [], []
+
+with torch.no_grad():
+    for X_batch, y_batch in tcn_loader:
+        X_batch = X_batch.to(device)
+        y_batch = y_batch.to(device)
+
+        pred = tcn_model(X_batch)
+        tcn_preds.append(pred.cpu())
+        tcn_actuals.append(y_batch.cpu())
+
+tcn_preds = torch.cat(tcn_preds).numpy()
+tcn_actuals = torch.cat(tcn_actuals).numpy()
+
+# 8. Loss Plot
+plt.figure(figsize=(10, 5))
+plt.plot(range(1, tcn_epochs + 1), tcn_losses, label='TCN Training Loss', color='green')
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.title("TCN Training Loss vs Epoch")
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# 9. Predicted vs Actual
+target_names = ['Target 1', 'Target 2', 'Target 3']
+for i, target in enumerate(target_names):
+    plt.figure(figsize=(6, 6))
+    plt.scatter(tcn_actuals[:, i], tcn_preds[:, i], alpha=0.5)
+    plt.plot([tcn_actuals[:, i].min(), tcn_actuals[:, i].max()],
+             [tcn_actuals[:, i].min(), tcn_actuals[:, i].max()],
+             'r--')
+    plt.xlabel(f'Actual {target}')
+    plt.ylabel(f'Predicted {target}')
+    plt.title(f'TCN Predicted vs Actual - {target}')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+#-------------------------------------------------------------------#
+
+from sklearn.metrics import mean_squared_error
+import numpy as np
+
+# Compute RMSE for each of the three targets
+for i, target in enumerate(target_names):
+    rmse = mean_squared_error(tcn_actuals[:, i], tcn_preds[:, i], squared=False)  # squared=False => RMSE
+    print(f"RMSE for {target}: {rmse:.4f}")
+
+#-------------------------------------------------------------------#
