@@ -1,4 +1,4 @@
-# Team Dynamo
+# Team Dynamo  
 # FidelFolio Market Cap Growth Forecasting
 
 ## Project Overview
@@ -17,8 +17,8 @@ This repository presents our solution to the **FidelFolio Deep Learning Challeng
 
 ## Dataset
 
-- Instances: Company-Year combinations
-- Features: 28 fundamental financial indicators (`Feature1` to `Feature28`)
+- Instances: Company-Year combinations  
+- Features: 28 fundamental financial indicators (`Feature1` to `Feature28`)  
 - Targets: 
   - `Target 1` (1Y growth)
   - `Target 2` (2Y growth)
@@ -39,8 +39,8 @@ This repository presents our solution to the **FidelFolio Deep Learning Challeng
 - MLP is not able to capture the complex Time Series Patterns in the Dataset.
 
 **Performance (RMSE):**
-- Target 1: 106.6246
-- Target 2: 227.6656
+- Target 1: 106.6246  
+- Target 2: 227.6656  
 - Target 3: 370.3143
 
 ---
@@ -50,8 +50,8 @@ This repository presents our solution to the **FidelFolio Deep Learning Challeng
 - Trained for 2000 epochs.
 
 **Performance (RMSE):**
-- Target 1: 22.7029
-- Target 2: 56.9746
+- Target 1: 22.7029  
+- Target 2: 56.9746  
 - Target 3: 186.7859
 
 ---
@@ -61,8 +61,8 @@ This repository presents our solution to the **FidelFolio Deep Learning Challeng
 - Trained for 3000 epochs.
 
 **Performance (RMSE):**
-- Target 1: 19.4405
-- Target 2: 47.9110
+- Target 1: 19.4405  
+- Target 2: 47.9110  
 - Target 3: 175.1124
 
 ---
@@ -72,8 +72,8 @@ This repository presents our solution to the **FidelFolio Deep Learning Challeng
 - Trained for 1200 epochs.
 
 **Performance (RMSE):**
-- Target 1: 30.9814
-- Target 2: 38.7712
+- Target 1: 30.9814  
+- Target 2: 38.7712  
 - Target 3: 112.2152
 
 ---
@@ -96,10 +96,21 @@ This repository presents our solution to the **FidelFolio Deep Learning Challeng
 
 ---
 
+### 8. Multi-horizon TCN
+- TCN variant tailored for multi-horizon forecasting.
+- Trained for 2000 epochs.
+
+**Performance (RMSE):**
+- Target 1: 28.5087  
+- Target 2: 34.4607  
+- Target 3: 42.4538
+
+---
+
 ## Model Comparison
 
-| Model              | Attention | RMSE T1 | RMSE T2 | RMSE T3 |
-|--------------------|-----------|---------|---------|---------|
+| Model              | Attention | RMSE T1  | RMSE T2  | RMSE T3  |
+|--------------------|-----------|----------|----------|----------|
 | MLP                | No        | 106.6246 | 227.6656 | 370.3143 |
 | LSTM               | No        | 22.7029  | 56.9746  | 186.7859 |
 | LSTM + Attention   | Yes       | 19.4405  | 47.9110  | 175.1124 |
@@ -107,6 +118,8 @@ This repository presents our solution to the **FidelFolio Deep Learning Challeng
 | DeepTCN            | Yes       | Pending  | Pending  | Pending  |
 | N-BEATS            | No        | Pending  | Pending  | Pending  |
 | DeepAR             | Yes       | Pending  | Pending  | Pending  |
+| Multi-horizon TCN  | Yes       | 28.5087  | 34.4607  | 42.4538  |
 
 ---
 
+### Multi-Horizon TCN is performing best among all.
